@@ -1,5 +1,7 @@
 # Personal Profile Website with Global Chat
 
+Example Website: mrkaffin.com
+
 A sleek, premium, glassmorphism-styled personal profile website template. It features a CRT-overlay background video, real-time Discord status syncing via Lanyard, and an anonymous global chat powered by Firebase.
 
 ## Features
@@ -48,3 +50,5 @@ By default, Firebase test mode expires after 30 days. To keep your global chat w
 
 ## Deployment
 Since this is a static website built with pure HTML/CSS/JS, you can host it anywhere for free! Just upload the files to **GitHub Pages**, **Vercel**, **Netlify**, or any traditional web host.
+
+Example Website: mrkaffin.com
