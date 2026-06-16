@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="page-title">Profile</title>
+    <!-- Modern font for premium look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <!-- Click to Enter Screen -->
+    <div id="enter-screen" onclick="enterSite()">
+        <canvas id="enter-canvas"></canvas>
+        <div class="enter-content">
+            <div class="enter-corners">
+                <span class="corner tl"></span>
+                <span class="corner tr"></span>
+                <span class="corner bl"></span>
+                <span class="corner br"></span>
+            </div>
+            <p class="enter-tag" id="enter-tag"></p>
+            <h1 class="enter-name glitch" id="enter-name" data-text=""></h1>
+            <div class="enter-divider"></div>
+            <p class="enter-sub">Personal Profile</p>
+            <div class="enter-btn"><span>[ Click to Enter ]</span></div>
+            <p class="enter-hint">click anywhere or press any key</p>
+        </div>
+    </div>
+
+    <!-- Background Video Container -->
+    <div class="video-container">
+        <!-- Background video hosted directly via Catbox.moe -->
+        <video loop playsinline preload="auto" muted id="bg-video">
+            <source id="bg-video-src" src="" type="video/mp4">
+        </video>
+        <!-- Dark overlay on video (for text readability) -->
+        <div class="overlay"></div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="content-wrapper" id="main-content">
+        <!-- Top Left Volume Control -->
+        <div class="volume-container">
+            <button id="volume-control" class="volume-btn glass-btn" onclick="toggleMute()" aria-label="Toggle Mute">
+                <i class="fa-solid fa-volume-high" id="volume-icon"></i>
+            </button>
+            <div class="volume-slider-wrapper">
+                <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.1"
+                    oninput="changeVolume(this.value)">
+            </div>
+        </div>
+
+        <!-- Top Right Chat Control -->
+        <div class="chat-toggle-container" id="chat-toggle-container">
+            <button class="chat-btn glass-btn" onclick="toggleChat()" aria-label="Open Chat">
+                <i class="fa-solid fa-message"></i>
+            </button>
+        </div>
+
+        <!-- Chat Window -->
+        <div class="chat-window glass-panel" id="chat-window">
+            <div class="chat-header">
+                <h3><i class="fa-solid fa-earth-americas"></i> Global Chat</h3>
+                <button class="close-chat-btn" onclick="toggleChat()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="chat-messages" id="chat-messages">
+                <div class="chat-msg system"><span>Connecting to global chat...</span></div>
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Type a message..." maxlength="100" autocomplete="off"
+                    onkeypress="handleChatKeyPress(event)">
+                <button class="send-btn glass-btn" onclick="sendMessage()"><i
+                        class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+
+        <div class="profile-container">
+            <h1 class="glow-name" id="profile-name"></h1>
+
+            <div class="location">
+                <i class="fa-solid fa-location-dot"></i>
+                <span id="profile-location"></span>
+            </div>
+
+            <div class="user-card">
+                <div class="avatar-wrapper">
+                    <img src="" alt="Profile Picture" class="avatar">
+                    <div class="status-indicator"></div>
+                </div>
+                <div class="user-details">
+                    <div class="username" id="profile-username"></div>
+                    <div class="activity">loading status...</div>
+                </div>
+            </div>
+
+            <div class="social-links" id="social-links-container">
+                <!-- Loaded dynamically from JS -->
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { CONFIG } from './config.js';
+
+        // ── Init Config Data ──
+        document.getElementById('page-title').innerText = `${CONFIG.name} - Profile`;
+        
+        const taglineEl = document.getElementById('enter-tag');
+        if (CONFIG.tagline) {
+            taglineEl.innerText = CONFIG.tagline;
+        } else {
+            taglineEl.style.display = 'none';
+        }
+        
+        const enterNameEl = document.getElementById('enter-name');
+        enterNameEl.innerText = CONFIG.name;
+        enterNameEl.setAttribute('data-text', CONFIG.name);
+        
+        document.getElementById('profile-name').innerText = CONFIG.name;
+        
+        const locationEl = document.getElementById('profile-location');
+        if (CONFIG.location) {
+            locationEl.innerText = CONFIG.location;
+        } else {
+            locationEl.parentElement.style.display = 'none';
+        }
+        
+        document.getElementById('profile-username').innerText = CONFIG.username;
+        
+        const bgVideoSrc = document.getElementById('bg-video-src');
+        bgVideoSrc.src = CONFIG.videoUrl;
+
+        const socialsContainer = document.getElementById('social-links-container');
+        CONFIG.socials.forEach(social => {
+            const a = document.createElement('a');
+            a.href = social.url;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            a.className = 'social-icon';
+            a.setAttribute('aria-label', social.label);
+            a.innerHTML = `<i class="fa-brands ${social.icon}"></i>`;
+            socialsContainer.appendChild(a);
+        });
+
+        const video = document.getElementById('bg-video');
+        video.load(); // Reload to pick up new src
+
+        const icon = document.getElementById('volume-icon');
+        const slider = document.getElementById('volume-slider');
+        let retryCount = 0;
+        let entered = false;
+
+        // ── Enter Screen Particle Canvas ─────────────────────────────
+        const canvas = document.getElementById('enter-canvas');
+        const ctx = canvas.getContext('2d');
+        let animFrameId;
+
+        const resizeCanvas = () => { canvas.width = innerWidth; canvas.height = innerHeight; };
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        class Particle {
+            constructor(scattered = false) { this.init(scattered); }
+            init(scattered = false) {
+                this.x = Math.random() * canvas.width;
+                this.y = scattered ? Math.random() * canvas.height : canvas.height + Math.random() * 50;
+                this.r = Math.random() * 1.5 + 0.4;
+                this.vy = Math.random() * 0.6 + 0.2;
+                this.vx = (Math.random() - 0.5) * 0.25;
+                this.alpha = Math.random() * 0.5 + 0.15;
+                this.decay = Math.random() * 0.002 + 0.0005;
+            }
+            update() {
+                this.y -= this.vy;
+                this.x += this.vx;
+                this.alpha -= this.decay;
+                if (this.alpha <= 0 || this.y < -10) this.init();
+            }
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = 'rgba(255,255,255,0.9)';
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        const particles = Array.from({ length: 100 }, (_, i) => new Particle(i < 70));
+
+        (function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => { p.update(); p.draw(); });
+            animFrameId = requestAnimationFrame(animate);
+        })();
+
+        // Press any key to enter
+        document.addEventListener('keydown', () => { if (!entered) enterSite(); }, { once: true });
+
+        // Show/hide with soft transition when video plays
+        video.addEventListener('playing', () => video.classList.add('loaded'));
+        video.addEventListener('waiting', () => video.classList.remove('loaded'));
+
+        // Retry loading in case of error
+        const handleVideoError = () => {
+            if (retryCount < 3) {
+                retryCount++;
+                console.warn(`Video load error, retrying... (${retryCount}/3)`);
+                var source = video.querySelector('source');
+                source.src = `${CONFIG.videoUrl}?t=${Date.now()}`;
+                video.load();
+            }
+        };
+        video.addEventListener('error', handleVideoError);
+        video.addEventListener('stalled', handleVideoError);
+
+        function enterSite() {
+            if (entered) return;
+            entered = true;
+
+            cancelAnimationFrame(animFrameId);
+
+            const enterScreen = document.getElementById('enter-screen');
+            enterScreen.style.opacity = '0';
+            setTimeout(() => enterScreen.style.display = 'none', 600);
+
+            // Rewind video, unmute and play
+            video.currentTime = 0;
+            video.muted = false;
+            video.volume = 0.1;
+
+            video.play().catch(err => {
+                console.warn("Muted autoplay required:", err);
+                video.muted = true;
+                video.play();
+                if (icon) icon.className = 'fa-solid fa-volume-xmark';
+                if (slider) slider.value = 0;
+            });
+
+            document.getElementById('main-content').classList.add('visible');
+        }
+
+        function toggleMute() {
+            video.muted = !video.muted;
+            if (video.muted) {
+                if (slider) slider.value = 0;
+                if (icon) icon.className = 'fa-solid fa-volume-xmark';
+            } else {
+                if (video.volume === 0) video.volume = 0.1;
+                if (slider) slider.value = video.volume;
+                if (icon) icon.className = 'fa-solid fa-volume-high';
+            }
+        }
+
+        function changeVolume(val) {
+            video.volume = val;
+            video.muted = val == 0;
+            if (slider) slider.value = val;
+            if (icon) icon.className = `fa-solid ${video.muted ? 'fa-volume-xmark' : 'fa-volume-high'}`;
+        }
+
+        // ── Global Chat Logic (Firebase) ─────────────────────────
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getDatabase, ref, push, onChildAdded, limitToLast, query } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+        // Firebase configuration from config.js
+        let db, chatRef;
+        const chatWindow = document.getElementById('chat-window');
+        const chatToggleBtn = document.getElementById('chat-toggle-container');
+        const chatMessages = document.getElementById('chat-messages');
+        const chatInput = document.getElementById('chat-input');
+
+        if (CONFIG.firebase && CONFIG.firebase.apiKey) {
+            const app = initializeApp(CONFIG.firebase);
+            db = getDatabase(app);
+            chatRef = query(ref(db, 'messages'), limitToLast(50));
+        } else {
+            // Hide chat UI if not configured
+            if (chatToggleBtn) chatToggleBtn.style.display = 'none';
+        }
+
+        // Setup client ID for grouping messages
+        let clientId = localStorage.getItem('chat_client_id');
+        if (!clientId) {
+            clientId = 'user_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('chat_client_id', clientId);
+        }
+        let lastSenderId = null;
+
+        function toggleChat() {
+            const isActive = chatWindow.classList.contains('active');
+            if (isActive) {
+                chatWindow.classList.remove('active');
+                chatToggleBtn.style.opacity = '1';
+                chatToggleBtn.style.visibility = 'visible';
+            } else {
+                chatWindow.classList.add('active');
+                chatToggleBtn.style.opacity = '0';
+                chatToggleBtn.style.visibility = 'hidden';
+                setTimeout(() => chatInput.focus(), 300);
+                scrollToBottom();
+            }
+        }
+
+        function handleChatKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        function sendMessage() {
+            const text = chatInput.value.trim();
+            if (!text) return;
+
+            const newMsg = {
+                text: text,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                timestamp: Date.now(),
+                senderId: clientId
+            };
+
+            // Push to Firebase Realtime Database
+            if (db) {
+                push(ref(db, 'messages'), newMsg).catch(err => {
+                    console.error("Firebase push error:", err);
+                    alert("Message could not be sent. Database region might be different. Check console logs.");
+                });
+            }
+
+            chatInput.value = '';
+        }
+
+        // Initialize chat window message
+        chatMessages.innerHTML = '<div class="chat-msg system"><span>Welcome to the global chat!</span></div>';
+
+        // Listen for new messages from Firebase
+        if (chatRef) {
+            onChildAdded(chatRef, (snapshot) => {
+                const msg = snapshot.val();
+                const msgDiv = document.createElement('div');
+                msgDiv.className = 'chat-msg user';
+
+                const isGrouped = lastSenderId === msg.senderId && msg.senderId !== undefined;
+                if (isGrouped) {
+                    msgDiv.classList.add('grouped');
+                }
+
+                msgDiv.innerHTML = `
+                    ${!isGrouped ? '<div class="msg-sender-name">Anonymous</div>' : ''}
+                    <div class="msg-content">${escapeHTML(msg.text)}</div>
+                    <div class="msg-meta">${msg.time}</div>
+                `;
+                chatMessages.appendChild(msgDiv);
+                scrollToBottom();
+
+                lastSenderId = msg.senderId;
+            });
+        }
+
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, tag => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+            }[tag]));
+        }
+
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Lanyard API - Discord Status Fetcher
+        async function fetchDiscordStatus() {
+            if (!CONFIG.discordId) {
+                document.querySelector('.user-card').style.display = 'none';
+                return;
+            }
+            const discordID = CONFIG.discordId;
+            try {
+                const response = await fetch(`https://api.lanyard.rest/v1/users/${discordID}?_t=${Date.now()}`, { cache: "no-store" });
+                const { success, data, error } = await response.json();
+
+                if (!success) {
+                    console.error("Lanyard Error:", error.message);
+                    document.querySelector('.activity').textContent = "discord not connected";
+                    return;
+                }
+
+                // Status indicator
+                document.querySelector('.status-indicator').className = `status-indicator ${data.discord_status}`;
+
+                // Discord Profile Picture
+                if (data.discord_user?.avatar) {
+                    const isGif = data.discord_user.avatar.startsWith('a_');
+                    document.querySelector('.avatar').src = `https://cdn.discordapp.com/avatars/${discordID}/${data.discord_user.avatar}.${isGif ? 'gif' : 'png'}?size=512`;
+                }
+
+                // Activity Status
+                const activityEl = document.querySelector('.activity');
+                if (data.activities?.length > 0) {
+                    const customStatus = data.activities.find(a => a.type === 4);
+                    activityEl.textContent = customStatus?.state || data.activities[0].name;
+                } else {
+                    const statusTranslations = {
+                        online: "Online on Discord",
+                        dnd: "Do Not Disturb",
+                        idle: "Idle",
+                        offline: "Offline on Discord"
+                    };
+                    activityEl.textContent = statusTranslations[data.discord_status] || "Offline on Discord";
+                }
+            } catch (err) {
+                console.error("Failed to fetch Discord status", err);
+            }
+        }
+
+        // Fetch initial data and update every 15 seconds
+        fetchDiscordStatus();
+        setInterval(fetchDiscordStatus, 15000);
+
+        // ── Expose Functions to Global Window Object for HTML Event Listeners ──
+        window.enterSite = enterSite;
+        window.toggleMute = toggleMute;
+        window.changeVolume = changeVolume;
+        window.toggleChat = toggleChat;
+        window.handleChatKeyPress = handleChatKeyPress;
+        window.sendMessage = sendMessage;
+    </script>
+</body>
+
+</html>
