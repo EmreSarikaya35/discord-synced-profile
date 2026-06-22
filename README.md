@@ -1,5 +1,7 @@
 # Personal Profile Website with Global Chat
 
+Built with vibe coding.
+
 Example Website: [mrkaffin.com](https://mrkaffin.com/)
 
 A sleek, premium, glassmorphism-styled personal profile website template. It features a CRT-overlay background video, real-time Discord status syncing via Lanyard, and an anonymous global chat powered by Firebase.
